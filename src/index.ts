@@ -82,12 +82,12 @@ export interface PathPalConfig<T extends Record<string, string> = Record<string,
   directories?: T
 
   /**
-   * Enable strict mode for additional path validation.
+   * Enable safe mode for additional path validation.
    * When true, prevents path traversal and ensures paths stay within root.
    *
-   * @default false
+   * @default true
    */
-  strict?: boolean
+  safe?: boolean
 
   /**
    * Template functions for dynamic path generation.
@@ -563,7 +563,7 @@ type DirectoryHelpers<T extends Record<string, string>> = {
 export interface PathPalJSON {
   root: string
   directories: Record<string, string>
-  strict: boolean
+  safe: boolean
 }
 
 /**
@@ -959,7 +959,7 @@ class LRUCache<K, V> {
 export class PathPalBase<T extends Record<string, string> = Record<string, string>> {
   #appRoot: URL
   #directories: T
-  #strict: boolean
+  #safe: boolean
   #templates: Map<string, TemplateFunction>
   #patterns: Map<string, PatternFunction>
   #cache: LRUCache<string, string> | null
@@ -983,7 +983,7 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
    * pal.modelsPath('User.js')      // /project/app/models/User.js
    */
   constructor(config: PathPalConfig<T>) {
-    this.#strict = config.strict ?? false
+    this.#safe = config.safe ?? true
     this.#appRoot = this.#normalizeRoot(config.root)
 
     // Store directories configuration
@@ -1132,10 +1132,10 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
   }
 
   /**
-   * Validates path segments when in strict mode
+   * Validates path segments when in safe mode
    */
   #validatePathSegments(paths: string[]): void {
-    if (!this.#strict) {
+    if (!this.#safe) {
       return
     }
 
@@ -1143,7 +1143,7 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
       // Check for path traversal attempts
       if (segment.includes('..')) {
         throw new Error(
-          `Path traversal detected: segment "${segment}" contains ".." which is not allowed in strict mode. `
+          `Path traversal detected: segment "${segment}" contains ".." which is not allowed in safe mode. `
           + 'This could allow access to files outside the project root.',
         )
       }
@@ -1151,7 +1151,7 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
       // Check for absolute paths
       if (isAbsolute(segment)) {
         throw new Error(
-          `Absolute path detected: segment "${segment}" is an absolute path which is not allowed in strict mode. `
+          `Absolute path detected: segment "${segment}" is an absolute path which is not allowed in safe mode. `
           + 'All paths must be relative to the project root.',
         )
       }
@@ -1549,13 +1549,13 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
   /**
    * Returns a JSON representation of the PathPal instance
    *
-   * @returns Object containing root, directories, and strict mode setting
+   * @returns Object containing root, directories, and safe mode setting
    */
   toJSON(): PathPalJSON {
     return {
       root: this.appRootPath,
       directories: { ...this.#directories },
-      strict: this.#strict,
+      safe: this.#safe,
     }
   }
 
@@ -1581,10 +1581,10 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
     const unifiedPath = path.replace(/\\/g, '/')
     const normalized = normalize(unifiedPath)
 
-    // In strict mode, check if normalization resulted in path traversal outside root
-    if (this.#strict && normalized.includes('..')) {
+    // In safe mode, check if normalization resulted in path traversal outside root
+    if (this.#safe && normalized.includes('..')) {
       throw new Error(
-        `Path traversal detected: normalized path "${normalized}" contains ".." which is not allowed in strict mode. `
+        `Path traversal detected: normalized path "${normalized}" contains ".." which is not allowed in safe mode. `
         + 'This could allow access to files outside the project root.',
       )
     }
@@ -1657,11 +1657,11 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
       const absolutePath = isAbsolute(path) ? path : this.makePath(path)
       const resolved = await realpath(absolutePath)
 
-      // In strict mode, ensure resolved path is within root
-      if (this.#strict && !this.isWithinRoot(resolved)) {
+      // In safe mode, ensure resolved path is within root
+      if (this.#safe && !this.isWithinRoot(resolved)) {
         throw new Error(
           `Symlink target outside root: "${resolved}" is not within the project root. `
-          + 'This is not allowed in strict mode.',
+          + 'This is not allowed in safe mode.',
         )
       }
 
@@ -1690,11 +1690,11 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
       const absolutePath = isAbsolute(path) ? path : this.makePath(path)
       const resolved = realpathSync(absolutePath)
 
-      // In strict mode, ensure resolved path is within root
-      if (this.#strict && !this.isWithinRoot(resolved)) {
+      // In safe mode, ensure resolved path is within root
+      if (this.#safe && !this.isWithinRoot(resolved)) {
         throw new Error(
           `Symlink target outside root: "${resolved}" is not within the project root. `
-          + 'This is not allowed in strict mode.',
+          + 'This is not allowed in safe mode.',
         )
       }
 
@@ -1919,16 +1919,16 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
   }
 
   /**
-   * Validates that a path is within the root directory in strict mode
+   * Validates that a path is within the root directory in safe mode
    *
    * @param path - Path to validate
-   * @throws Error if in strict mode and path is outside root
+   * @throws Error if in safe mode and path is outside root
    */
   #validateStrictMode(path: string): void {
-    if (this.#strict && !this.isWithinRoot(path)) {
+    if (this.#safe && !this.isWithinRoot(path)) {
       throw new Error(
         `Path "${path}" is outside root directory "${this.appRootPath}". `
-        + 'This operation is not allowed in strict mode.',
+        + 'This operation is not allowed in safe mode.',
       )
     }
   }
@@ -2199,8 +2199,8 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
       for (const entry of entries) {
         const entryPath = join(currentPath, entry.name)
 
-        // Check if it's within root in strict mode
-        if (this.#strict && !this.isWithinRoot(entryPath)) {
+        // Check if it's within root in safe mode
+        if (this.#safe && !this.isWithinRoot(entryPath)) {
           continue
         }
 
@@ -2281,8 +2281,8 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
       for (const entry of entries) {
         const entryPath = join(currentPath, entry.name)
 
-        // Check if it's within root in strict mode
-        if (this.#strict && !this.isWithinRoot(entryPath)) {
+        // Check if it's within root in safe mode
+        if (this.#safe && !this.isWithinRoot(entryPath)) {
           continue
         }
 
@@ -2655,8 +2655,8 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
         return false
       }
 
-      // Validate within root in strict mode
-      if (this.#strict && !this.isWithinRoot(filePath)) {
+      // Validate within root in safe mode
+      if (this.#safe && !this.isWithinRoot(filePath)) {
         return false
       }
 
@@ -2736,8 +2736,8 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
         return false
       }
 
-      // Validate within root in strict mode
-      if (this.#strict && !this.isWithinRoot(filePath)) {
+      // Validate within root in safe mode
+      if (this.#safe && !this.isWithinRoot(filePath)) {
         return false
       }
 
@@ -3156,7 +3156,7 @@ export class PathPalBase<T extends Record<string, string> = Record<string, strin
     const tempPal = new PathPalBase<T>({
       root: tempRoot,
       directories: this.#directories,
-      strict: this.#strict,
+      safe: this.#safe,
     })
 
     // Track cleanup state

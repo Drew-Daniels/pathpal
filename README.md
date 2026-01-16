@@ -10,7 +10,7 @@ Zero-dependency filesystem path abstraction for Node.js. Define your project's d
 - **File operations** - Read, write, list, watch files with path-aware methods
 - **Glob support** - Built-in glob pattern matching without external tools
 - **Path sanitization** - Secure filename and path sanitization
-- **Strict mode** - Optional path traversal protection
+- **Safe mode** - Path traversal protection enabled by default
 - **Caching** - LRU cache for path computations
 - **Temp directories** - Built-in support for temporary test directories
 
@@ -106,8 +106,8 @@ const paths = createPathPal({
     tests: '__tests__',
   },
 
-  // Enable strict mode for path traversal protection
-  strict: true,
+  // Safe mode is enabled by default (prevents path traversal)
+  // safe: true,
 
   // Enable path caching
   cache: true,
@@ -276,20 +276,25 @@ const files = await paths.glob('**/*.ts', {
 const syncFiles = paths.globSync('src/**/*.js')
 ```
 
-### Strict Mode
+### Safe Mode
 
-Enable strict mode to prevent path traversal attacks:
+Safe mode is **enabled by default** to prevent path traversal attacks:
 
 ```typescript
 const paths = createPathPal({
   root: process.cwd(),
-  strict: true,
 })
 
-// These throw errors in strict mode:
+// These throw errors (safe mode is on by default):
 paths.makePath('..', 'etc', 'passwd')  // Error: Path traversal detected
 paths.makePath('/etc/passwd')          // Error: Absolute path detected
 await paths.readFile('/etc/passwd')    // Error: Path outside root directory
+
+// Disable safe mode if you need to allow path traversal (not recommended):
+const unsafePaths = createPathPal({
+  root: process.cwd(),
+  safe: false,
+})
 ```
 
 ### Templates and Patterns
@@ -402,7 +407,7 @@ const results = await paths.batch([
 ```typescript
 // Serialize to JSON
 const json = paths.toJSON()
-// { root: '/project', directories: { config: 'config', ... }, strict: false }
+// { root: '/project', directories: { config: 'config', ... }, safe: true }
 
 // Useful for logging, debugging, or recreating instances
 ```

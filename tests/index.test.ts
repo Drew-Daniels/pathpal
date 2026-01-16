@@ -180,7 +180,7 @@ test('PathPal - toJSON returns serializable object', () => {
   strictEqual(json.root, projectRoot)
   strictEqual(json.directories.config, 'config')
   strictEqual(json.directories.models, 'app/models')
-  strictEqual(json.strict, false)
+  strictEqual(json.safe, true) // safe mode is enabled by default
 })
 
 test('PathPal - works with relative root paths', () => {
@@ -345,10 +345,10 @@ test('PathPal - throws error for reserved directory key prototype', () => {
 // Strict Mode Tests
 // ===========================
 
-test('PathPal - strict mode prevents path traversal with ..', () => {
+test('PathPal - safe mode prevents path traversal with ..', () => {
   const pal = createPathPal({
     root: projectRoot,
-    strict: true,
+    safe: true,
   })
 
   throws(
@@ -358,14 +358,14 @@ test('PathPal - strict mode prevents path traversal with ..', () => {
     {
       message: /Path traversal detected/,
     },
-    'Should throw error for .. in strict mode',
+    'Should throw error for .. in safe mode',
   )
 })
 
-test('PathPal - strict mode prevents absolute paths', () => {
+test('PathPal - safe mode prevents absolute paths', () => {
   const pal = createPathPal({
     root: projectRoot,
-    strict: true,
+    safe: true,
   })
 
   throws(
@@ -375,29 +375,29 @@ test('PathPal - strict mode prevents absolute paths', () => {
     {
       message: /Absolute path detected/,
     },
-    'Should throw error for absolute path in strict mode',
+    'Should throw error for absolute path in safe mode',
   )
 })
 
-test('PathPal - non-strict mode allows path traversal', () => {
+test('PathPal - non-safe mode allows path traversal', () => {
   const pal = createPathPal({
     root: projectRoot,
-    strict: false,
+    safe: false,
   })
 
   // Should not throw
   const path = pal.makePath('config', '..', 'src')
-  ok(path.includes('src'), 'Should allow .. in non-strict mode')
+  ok(path.includes('src'), 'Should allow .. in non-safe mode')
 })
 
-test('PathPal - strict mode setting is included in toJSON', () => {
+test('PathPal - safe mode setting is included in toJSON', () => {
   const pal = createPathPal({
     root: projectRoot,
-    strict: true,
+    safe: true,
   })
 
   const json = pal.toJSON()
-  strictEqual(json.strict, true, 'Should include strict mode in JSON')
+  strictEqual(json.safe, true, 'Should include safe mode in JSON')
 })
 
 // ===========================
@@ -814,9 +814,9 @@ test('PathPal - watch monitors file changes', async () => {
   await rm(testRoot, { recursive: true, force: true })
 })
 
-test('PathPal - strict mode blocks file operations outside root', async () => {
+test('PathPal - safe mode blocks file operations outside root', async () => {
   const testRoot = await mkdtemp(join(tmpdir(), 'pathpal-test-'))
-  const pal = createPathPal({ root: testRoot, strict: true })
+  const pal = createPathPal({ root: testRoot, safe: true })
 
   let error1Thrown = false
   try {
@@ -1082,13 +1082,13 @@ test('PathPal - listFilesSync with symlinks', async () => {
   }
 })
 
-test('PathPal - listFiles in strict mode filters paths outside root', async () => {
+test('PathPal - listFiles in safe mode filters paths outside root', async () => {
   const testRoot = await mkdtemp(join(tmpdir(), 'pathpal-test-'))
-  const pal = createPathPal({ root: testRoot, strict: true })
+  const pal = createPathPal({ root: testRoot, safe: true })
 
   await pal.writeFile('file.txt', 'content')
 
-  // In strict mode, paths are validated
+  // In safe mode, paths are validated
   const files = await pal.listFiles('.')
   ok(files.length >= 0) // Should not crash
 
