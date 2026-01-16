@@ -73,6 +73,11 @@ const paths = createPathPal({
 // Generate absolute paths
 paths.makePath('src', 'index.ts')  // /project/src/index.ts
 
+// Paths can include slashes - these are equivalent:
+paths.makePath('src', 'components', 'Button.tsx')
+paths.makePath('src/components', 'Button.tsx')
+paths.makePath('src/components/Button.tsx')
+
 // Generate file:// URLs
 paths.makeURL('config', 'app.json')  // URL { href: 'file:///project/config/app.json' }
 
