@@ -14,6 +14,53 @@ Zero-dependency filesystem path abstraction for Node.js. Define your project's d
 - **Caching** - LRU cache for path computations
 - **Temp directories** - Built-in support for temporary test directories
 
+## Why PathPal?
+
+Path handling in Node.js projects typically looks like this:
+
+```typescript
+import { fileURLToPath } from 'node:url'
+import { join, dirname } from 'node:path'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const ROOT = join(__dirname, '..')
+
+// Scattered throughout your codebase:
+const configPath = join(ROOT, 'config', 'database.json')
+const uploadPath = join(ROOT, 'storage', 'uploads', filename)
+const logPath = join(ROOT, 'logs', `${date}.log`)
+```
+
+This approach has several problems:
+
+- **Repetition** - The same `join(ROOT, 'config', ...)` pattern repeated everywhere
+- **No single source of truth** - Directory structure is implicit and scattered across files
+- **Refactoring is painful** - Renaming `config/` to `settings/` means finding every occurrence
+- **Easy to make mistakes** - Typos in path strings aren't caught until runtime
+- **ESM boilerplate** - Every file needs the `__dirname` workaround for ES modules
+
+PathPal solves this by centralizing your directory structure:
+
+```typescript
+import { createPathPal } from 'pathpal'
+
+const paths = createPathPal({
+  root: import.meta.url,
+  directories: {
+    config: 'config',
+    uploads: 'storage/uploads',
+    logs: 'logs',
+  },
+})
+
+// Use anywhere - type-safe and refactor-friendly:
+paths.configPath('database.json')
+paths.uploadsPath(filename)
+paths.logsPath(`${date}.log`)
+```
+
+Change a directory location in one place, and it updates everywhere. TypeScript catches typos at compile time. No more `__dirname` boilerplate.
+
 ## Installation
 
 ```bash
